@@ -1,4 +1,5 @@
 import http from "node:http";
+import { sendBadRequest } from "./http/responses.js";
 import { extractBodyFromRequest } from "./lib/extract-body-from-request.js";
 import { startRecipeGeneration } from "./recipe/processor.js";
 
@@ -19,12 +20,16 @@ http
       res.end(JSON.stringify({ error: "Not Found" }));
       return;
     }
-    const body = await extractBodyFromRequest(req);
+    let body;
+    try {
+      body = await extractBodyFromRequest(req);
+    } catch (e) {
+      console.error(e);
+      return sendBadRequest(res, "body is not a valid JSON");
+    }
     const url = body?.url;
     if (!url) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Bad Request: 'url' is required" }));
-      return;
+      return sendBadRequest(res, "'url' is required");
     }
 
     try {
