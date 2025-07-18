@@ -31,9 +31,9 @@ http
     if (!url) {
       return sendBadRequest(res, "'url' is required");
     }
-
+    let recipe;
     try {
-      await startRecipeGeneration(url);
+      recipe = await startRecipeGeneration(url);
     } catch (e) {
       console.log("e :>> ", e);
       res.writeHead(500, { "Content-Type": "application/json" });
@@ -42,7 +42,14 @@ http
     }
 
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ message: "Recipe generated successfully!" }));
+    res.end(
+      JSON.stringify({
+        message: "Recipe generated successfully!",
+        result: {
+          data: recipe,
+        },
+      }),
+    );
   })
   .listen(PORT, () => {
     console.log(`Server is running at http://localhost:${PORT}/`);

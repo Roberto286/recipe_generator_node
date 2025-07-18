@@ -1,3 +1,4 @@
+import { generateRecipe } from "../ai/recipe-generator.js";
 import { transcribeAudio } from "../ai/transcriber.js";
 import { extractAudioFrom } from "../audio/processor.js";
 import { Status } from "../enum/status.enum.js";
@@ -21,5 +22,12 @@ export async function startRecipeGeneration(url) {
     throw new Error("Audio transcription failed");
   }
 
-  console.log("transcribedAudio :>> ", transcribedAudio);
+  const { recipe, metadata } = await generateRecipe(transcribedAudio, {
+    description: videoInfo.metadata.description,
+    comments: videoInfo.metadata.comments,
+  });
+
+  console.log("recipe, metadata :>> ", recipe, metadata);
+
+  return recipe;
 }
