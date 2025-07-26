@@ -1,13 +1,21 @@
-export async function generateRecipe(recipeText, { description, comments }) {
+export async function generateRecipe(
+  recipeText,
+  { description, comments, ingredients },
+) {
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
   const API_URL = "https://api.openai.com/v1/chat/completions";
 
   // Modello consigliato per costo/performance
   const MODEL = "gpt-4o-mini"; // Miglior rapporto qualità/prezzo
 
-  if (!OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY non trovata nelle variabili d'ambiente");
-  }
+  const formattedIngredients = ingredients?.length
+    ? `## Ingredienti estratti da usare nella ricetta (non modificarli):\n${ingredients
+        .map(
+          (i) =>
+            `- ${i.quantità} ${i.ingrediente}${i.stimata ? " (quantità stimata)" : ""}`,
+        )
+        .join("\n")}\n\n`
+    : "";
 
   const systemPrompt = `Sei un assistente specializzato nella scrittura di ricette di cucina. Scrivi sempre in **italiano**. Il tuo compito è trasformare una trascrizione in una **ricetta completa e ben formattata** in **Markdown**.
 
@@ -20,6 +28,11 @@ export async function generateRecipe(recipeText, { description, comments }) {
 - Usa sempre **"minuti"**, **"grammi"**, **"ml"**, **"°C"** (niente abbreviazioni)
 - Segui sempre e solo lo **schema Markdown** qui sotto
 - **Non usare altri formati**
+- Deduci e **scrivi step chiari, dettagliati e descrittivi**.
+- Spiega cosa fare in ogni fase.
+- Specifica quantità, tempi, utensili se possibile.
+- Usa uno stile naturale e comprensibile.
+- Non ripetere la quantità degli ingredienti quando indichi il procedimento, usa solo il nome dell'ingrediente. Esempio: ingredienti 2 cucchiai di olio -> mettere l'olio in padella
 
 ## Schema obbligatorio:
 \`\`\`markdown
@@ -62,7 +75,8 @@ export async function generateRecipe(recipeText, { description, comments }) {
 \`[categoria]\` \`[difficoltà]\` \`[tipo-cottura]\` \`[tempo-preparazione]\`
 \`\`\``;
 
-  const userPrompt = `Trasforma questa trascrizione in una ricetta completa seguendo lo schema markdown specificato:
+  const userPrompt = `
+${formattedIngredients}Trasforma questa trascrizione in una ricetta completa seguendo lo schema markdown specificato:
 
 TRASCRIZIONE DEL REEL:
 ${recipeText}
@@ -70,31 +84,12 @@ ${recipeText}
 ${description ? `DESCRIZIONE DEL REEL INSTAGRAM: ${description}` : ""}
 ${comments ? `COMMENTI DEL REEL INSTAGRAM: ${comments}` : ""}
 
-**IMPORTANTE - ANALISI DELLE QUANTITÀ**: 
-Prima di scrivere la ricetta, leggi ATTENTAMENTE tutta la trascrizione e descrizione per identificare TUTTE le quantità specifiche menzionate. Se trovi dosi precise (es. "30 grammi di olio", "200ml di latte", "2 cucchiai di zucchero") devi usare ESATTAMENTE quelle quantità nella ricetta finale.
-
-**PROCESSO OBBLIGATORIO**:
-1. **Scansiona** tutta la trascrizione e descrizione per quantità specifiche
-2. **Annota** tutte le dosi trovate prima di procedere
-3. **Usa sempre** le quantità originali, mai inventarne di nuove
-4. **Solo se mancano completamente** le dosi, stimale e aggiungi "(quantità stimata)"
-
-**IMPORTANTE**: Analizza attentamente i commenti del reel per estrarre informazioni utili:
-- Sostituzioni di ingredienti suggerite dagli utenti
-- Consigli pratici di chi ha provato la ricetta
-- Varianti e modifiche testate
-- Errori comuni da evitare
-- Suggerimenti per migliorare il risultato
-
-Includi queste informazioni nella sezione "💡 Consigli" specificando che provengono dai commenti degli utenti (es. "Un utente suggerisce di sostituire X con Y per un risultato più cremoso").
-
-Ricorda di:
-- Correggere errori evidenti nella trascrizione
-- Stimare quantità mancanti con buon senso
-- Usare solo unità di misura complete (minuti, grammi, ml, °C)
-- Seguire esattamente lo schema markdown con emoji
-- Organizzare il procedimento in 3 fasi (Preparazione, Cottura, Finalizzazione)
-- Arricchire i consigli con le informazioni utili dai commenti
+**IMPORTANTE**:
+- Usa esattamente gli ingredienti forniti sopra nella sezione 🥘 Ingredienti.
+- Non modificarli. Non aggiungerne di nuovi.
+- Se nel testo compaiono altri ingredienti, ignorali.
+- Se alcune quantità sono stimate, lasciale indicate come "(quantità stimata)".
+- Inserisci nei 💡 Consigli eventuali varianti o sostituzioni dai commenti.
 `;
   const requestBody = {
     model: MODEL,
@@ -103,7 +98,7 @@ Ricorda di:
       { role: "user", content: userPrompt },
     ],
     max_tokens: 2000,
-    temperature: 0.7,
+    temperature: 0.1,
     top_p: 1,
     frequency_penalty: 0,
     presence_penalty: 0,
