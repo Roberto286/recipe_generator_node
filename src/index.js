@@ -1,25 +1,40 @@
 import http from "node:http";
-import { sendBadRequest } from "./http/responses.js";
+import jwt from "jsonwebtoken";
+import {
+  sendBadRequest,
+  sendMethodNotAllowed,
+  sendNotFound,
+  sendUnauthorized,
+} from "./http/responses.js";
 import { extractBodyFromRequest } from "./lib/extract-body-from-request.js";
 import { startRecipeGeneration } from "./recipe/processor.js";
 
 const PORT = process.env.PORT || 3000;
-const REQUIRED_ENV_VARIABLES = ["OPENAI_API_KEY"];
+const REQUIRED_ENV_VARIABLES = ["OPENAI_API_KEY", "SUPABASE_JWT_SECRET"];
 
 checkEnv();
+
+const supabaseJwtSecret = process.env.SUPABASE_JWT_SECRET;
 
 http
   .createServer(async (req, res) => {
     if (req.method !== "POST") {
-      res.writeHead(405, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Method Not Allowed" }));
-      return;
+      return sendMethodNotAllowed(res, req.method);
     }
     if (req.url !== "/recipe") {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Not Found" }));
-      return;
+      return sendNotFound(res, req.url);
     }
+
+    if (!req.headers.authorization) {
+      return sendUnauthorized(res);
+    }
+
+    const userToken = req.headers.authorization.replace("Bearer ", "");
+
+    if (!userAuthenticated(userToken)) {
+      return sendUnauthorized(res);
+    }
+
     let body;
     try {
       body = await extractBodyFromRequest(req);
@@ -69,5 +84,15 @@ function checkEnv() {
       ${notValidVars.join("\n ")}\nare required in order to use the program.\nMake sure to set them in your .env file`,
     );
     process.exit(1);
+  }
+}
+
+function userAuthenticated(token) {
+  try {
+    const payload = jwt.verify(token, supabaseJwtSecret);
+    return payload;
+  } catch (error) {
+    console.log(error);
+    return null;
   }
 }
